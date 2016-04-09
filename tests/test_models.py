@@ -56,11 +56,12 @@ class TestShow(unittest.TestCase):
         shared.session = Session.connect(shared.config['database']['name'])
 
         show = Show(title='House of Cards')
+        shared.session.save(show)
         season = Season(show=show, number=1)
         shared.session.save(season)
         del show, season
 
-        show = shared.session.query(Show).first()        
+        show = shared.session.query(Show).first()
         shared.session.remove(show)
         self.assertEqual(0, shared.session.query(Season).count())
 

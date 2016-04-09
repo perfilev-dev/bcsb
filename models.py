@@ -14,6 +14,10 @@ class Show(Document):
 
     title = StringField()
 
+    @computed_field(StringField(), deps=[title])
+    def title_lower(obj):
+        return obj.get('title','').lower()
+
 
 class Season(Document):
     config_collection_name = 'seasones'
