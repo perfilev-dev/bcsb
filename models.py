@@ -6,7 +6,6 @@ class Chat(Document):
     config_collection_name = 'chats'
 
     id = IntField(min_value=0)
-    title = StringField()
 
 
 class Show(Document):
@@ -33,7 +32,7 @@ class Episode(Document):
     number = IntField(min_value=0)
     season = DocumentField(Season)
     release = DateTimeField()
-    url = StringField()
+    url = StringField(required=False)
 
 
 class Subscription(Document):
