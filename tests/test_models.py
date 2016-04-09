@@ -8,6 +8,7 @@ sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 from datetime import datetime
 from mongoalchemy.session import Session
 from utils.config import configure_for_unittest
+from pymongo.errors import DuplicateKeyError
 
 
 class TestChat(unittest.TestCase):
@@ -78,6 +79,21 @@ class TestShow(unittest.TestCase):
         del shared.session
 
         self.assertEqual(0, sum(counts))
+
+    def test_duplicate(self):
+        from models import Show
+
+        shared.config = configure_for_unittest()
+        shared.session = Session.connect(shared.config['database']['name'],
+                                         safe=True)
+
+        show1 = Show(title='House of Cards')
+        show2 = Show(title='House of Cards')
+
+        shared.session.save(show1)
+
+        with self.assertRaises(DuplicateKeyError):
+            shared.session.save(show2)
 
 
 class TestSeason(unittest.TestCase):

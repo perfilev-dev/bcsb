@@ -9,7 +9,8 @@ from methods import start, showlist, subscribe
 
 if __name__ == '__main__':
     shared.config = configure_from_file('default.cfg')
-    shared.session = Session.connect(shared.config['database']['name'])
+    shared.session = Session.connect(shared.config['database']['name'],
+                                     safe=True)
 
     updater = Updater(token=shared.config['telegram']['token'])
 

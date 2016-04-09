@@ -1,4 +1,4 @@
-from mongoalchemy.document import Document
+from mongoalchemy.document import Document, Index
 from mongoalchemy.fields import *
 
 
@@ -16,6 +16,8 @@ class Show(Document):
     @computed_field(StringField(), deps=[title])
     def title_lower(obj):
         return obj.get('title','').lower()
+
+    t_index = Index().descending('title').unique()
 
 
 class Season(Document):
