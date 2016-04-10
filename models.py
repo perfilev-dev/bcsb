@@ -17,7 +17,7 @@ class Show(Document):
     def title_lower(obj):
         return obj.get('title','').lower()
 
-    t_index = Index().descending('title').unique()
+    t_index = Index().ascending('title').unique()
 
 
 class Season(Document):

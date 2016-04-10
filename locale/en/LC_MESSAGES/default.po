@@ -1,0 +1,69 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2016-04-10 02:57+0300\n"
+"PO-Revision-Date: 2016-04-10 02:58+0300\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Poedit 1.5.7\n"
+
+#: methods.py:115
+msgid "List of active subscriptions:"
+msgstr "List of active subscriptions:"
+
+#: methods.py:24
+msgid "List of available TV shows:"
+msgstr "List of available TV shows:"
+
+#: methods.py:52 methods.py:83
+msgid "Specified series is not on my list."
+msgstr "Specified series is not on my list."
+
+#: methods.py:65
+msgid "You are already subscribed to this series."
+msgstr "You are already subscribed to this series."
+
+#: methods.py:86 methods.py:107 methods.py:112
+msgid "You are not subscribed to any of the series."
+msgstr "You are not subscribed to any of the series."
+
+#: methods.py:95
+msgid "You are not subscribed to the show."
+msgstr "You are not subscribed to the show."
+
+#: methods.py:11
+msgid "You can control me by sending these commands:"
+msgstr "You can control me by sending these commands:"
+
+#: methods.py:59 methods.py:69
+msgid "You have subscribed to the show."
+msgstr "You have subscribed to the show."
+
+#: methods.py:93
+msgid "You have unsubscribed from the show."
+msgstr "You have unsubscribed from the show."
+
+#: methods.py:15
+msgid "show active subscriptions"
+msgstr "show active subscriptions"
+
+#: methods.py:12
+msgid "show list of available TV shows"
+msgstr "show list of available TV shows"
+
+#: methods.py:13
+msgid "subscribe to a TV show"
+msgstr "subscribe to a TV show"
+
+#: methods.py:14
+msgid "unsubscribe from a TV show"
+msgstr "unsubscribe from a TV show"
