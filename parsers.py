@@ -227,3 +227,12 @@ def get_episode_url(episode):
             vk_id = element['player'].split('&id=')[1].split('&')[0]
             if not requests.get('http://vk.com/video{}_{}'.format(oid, vk_id)).status_code == 403:
                 return 'http://vk.com/video{}_{}'.format(oid, vk_id)
+
+
+def update_episode_url(episode):
+    shared.session = Session.connect(shared.config['database']['name'])
+    url = get_episode_url(episode)
+
+    if url and url != episode.url:
+        episode.url = url
+        session.save(episode)
