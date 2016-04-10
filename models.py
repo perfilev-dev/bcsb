@@ -6,6 +6,8 @@ class Chat(Document):
     config_collection_name = 'chats'
 
     id = IntField(min_value=0)
+    lang = EnumField(StringField(), 'en', 'ru')
+    ref = StringField()
 
 
 class Show(Document):
