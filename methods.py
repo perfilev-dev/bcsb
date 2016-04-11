@@ -1,7 +1,8 @@
+import re
 import __builtin__ as shared
 
 from telegram import Emoji, ReplyKeyboardMarkup, ReplyKeyboardHide
-from models import Show, Chat, Subscription
+from models import Chat, Subscription, Show, Season, Episode
 
 
 __all__ = [
@@ -11,6 +12,7 @@ __all__ = [
     'unsubscribe',
     'subscriptions',
     'setlang',
+    'watch',
     'default'
 ]
 
@@ -187,6 +189,140 @@ def setlang(bot, update):
                         reply_markup=ReplyKeyboardHide())
 
 
+def watch(bot, update):
+    ''' Returns an embedded video of episodes. '''
+
+    chat = get_chat(update.message.chat_id)
+    request = update.message.text[7:].strip().lower()
+
+    try:
+
+        if not len(request):
+            chat.ref = 'watch__'
+            shared.session.update(chat)
+            response = _('Which TV show would you like to see?')
+            bot.sendMessage(chat_id=update.message.chat_id,
+                            text=response,
+                            reply_markup=ReplyKeyboardHide())
+        else:
+            matches = (re.search(r'^(.+)_(\d+)$', request, re.U),
+                       re.search(r'^(.+)_(\d+)_(\d+)$', request, re.U))
+
+            show_title, season_number, episode_number = None, None, None
+            if not matches[1] is None:
+                show_title = matches[1].group(1)
+                season_number = int(matches[1].group(2))
+                episode_number = int(matches[1].group(3))
+            elif not matches[0] is None:
+                show_title = matches[0].group(1)
+                season_number = int(matches[0].group(2))
+            else:
+                show_title = request
+
+            show = shared.session.query(Show).filter(Show.title_lower == show_title).first()
+            if show is None:
+                response = _('Specified series is not on my list.')
+                bot.sendMessage(chat_id=update.message.chat_id,
+                                text=response,
+                                reply_markup=ReplyKeyboardHide())
+                chat.ref = ''
+                shared.session.update(chat)
+                return
+            elif not shared.session.query(Episode).filter(
+                Episode.season.show.mongo_id == show.mongo_id, Episode.url != '').count():
+
+                response = _('Unfortunately, we do not have any series of this TV show.')
+                bot.sendMessage(chat_id=update.message.chat_id,
+                                text=response,
+                                reply_markup=ReplyKeyboardHide())
+                chat.ref = ''
+                shared.session.update(chat)
+                return
+
+            if season_number is None:
+                chat.ref = 'watch__%s' % show_title
+                shared.session.update(chat)
+                response = _('Which season would you like to see?')
+
+                seasons, buttons = shared.session.query(Season).filter(
+                    Season.show.mongo_id == show.mongo_id), []
+
+                for season in seasons:
+                    if shared.session.query(Episode).filter(
+                        Episode.season.mongo_id == season.mongo_id,
+                        Episode.url != '').count():
+                        buttons.append(str(season.number))
+
+                buttons = sorted(list(set(buttons)), key=lambda x: int(x))
+                buttons = [buttons[i:i+3] for i in xrange(0, len(buttons), 3)]
+
+                bot.sendMessage(chat_id=update.message.chat_id,
+                                text=response,
+                                reply_markup=ReplyKeyboardMarkup(buttons))
+                return
+            else:
+                season = shared.session.query(Season).filter(
+                    Season.show.mongo_id == show.mongo_id, Season.number == season_number).first()
+
+                if season is None:
+                    response = _('Wrong season.')
+                    bot.sendMessage(chat_id=update.message.chat_id,
+                                    text=response,
+                                    reply_markup=ReplyKeyboardHide())
+                    return
+                elif not shared.session.query(Episode).filter(
+                    Episode.season.show.mongo_id == show.mongo_id,
+                    Episode.season.number == season_number,
+                    Episode.url != '').count():
+
+                    response = _('Unfortunately, we do not have any series of this season.')
+                    bot.sendMessage(chat_id=update.message.chat_id,
+                                    text=response,
+                                    reply_markup=ReplyKeyboardHide())
+                    chat.ref = ''
+                    shared.session.update(chat)
+                    return
+
+            if episode_number is None:
+                chat.ref = 'watch__%s_%d' % (show_title, season_number)
+                shared.session.update(chat)
+                response = _('Which episode would you like to see?')
+
+                episodes = shared.session.query(Episode).filter(
+                    Episode.season.mongo_id == season.mongo_id, Episode.url != '')
+
+                buttons = sorted(list(set([str(ep.number) for ep in episodes])), key=lambda x: int(x))
+                buttons = [buttons[i:i+3] for i in xrange(0, len(buttons), 3)]
+
+                bot.sendMessage(chat_id=update.message.chat_id,
+                                text=response,
+                                reply_markup=ReplyKeyboardMarkup(buttons))
+            else:
+                episode = shared.session.query(Episode).filter(
+                    Episode.season.mongo_id == season.mongo_id,
+                    Episode.number == episode_number, Episode.url != '').first()
+
+                if episode is None:
+                    response = _('Wrong episode.')
+                    bot.sendMessage(chat_id=update.message.chat_id,
+                                    text=response,
+                                    reply_markup=ReplyKeyboardHide())
+                    chat.ref = ''
+                    shared.session.update(chat)
+                else:
+                    response = episode.url
+                    bot.sendMessage(chat_id=update.message.chat_id,
+                                    text=response,
+                                    reply_markup=ReplyKeyboardHide())
+                    chat.ref = ''
+                    shared.session.update(chat)
+
+    except Exception as e:
+        print e
+
+    return
+
+
 def default(bot, update):
 
     chat = get_chat(update.message.chat_id)
@@ -194,7 +330,6 @@ def default(bot, update):
     if chat.ref == 'subscribe':
         update.message.text, chat.ref = '/subscribe ' + update.message.text, ''
         subscribe(bot, update)
-        shared.session.update(chat)
     elif chat.ref == 'unsubscribe':
         update.message.text, chat.ref = '/unsubscribe ' + update.message.text, ''
         unsubscribe(bot, update)
@@ -203,5 +338,12 @@ def default(bot, update):
         update.message.text, chat.ref = '/setlang ' + update.message.text, ''
         setlang(bot, update)
         shared.session.update(chat)
+    elif chat.ref.split('__')[0] == 'watch':
+        if len(chat.ref.split('__')[1]):
+            update.message.text = '/watch %s_%s' % (chat.ref.split('__')[1],
+                                                    update.message.text)
+        else:
+            update.message.text = '/watch %s' % update.message.text
+        watch(bot, update)
     else:
         start(bot, update)

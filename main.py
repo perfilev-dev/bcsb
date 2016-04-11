@@ -3,12 +3,18 @@ import __builtin__ as shared
 
 from telegram import Bot
 from telegram.ext import Updater
-from mongoalchemy.session import Session
 from utils.config import configure_from_file
-from gettext import translation
 
 
 if __name__ == '__main__':
+
+    shared.config = configure_from_file('default.cfg')
+
+    for lang in shared.config['telegram']['lang']
+
+
+
+
     shared.config = configure_from_file('default.cfg')
     shared.session = Session.connect(shared.config['database']['name'], safe=True)
     shared.lang = {

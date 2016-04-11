@@ -1,212 +1,151 @@
 import sys
 import unittest
-import __builtin__ as shared
 
-from os import path
+from os import path, environ
+
+# Export dir for import module like from root directory
 sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 
-from datetime import datetime
-from mongoalchemy.session import Session
-from utils.config import configure_for_unittest
-from pymongo.errors import DuplicateKeyError
+from util import configure_for_unittest
 
 
 class TestChat(unittest.TestCase):
 
-    def test_existence(self):
+    def test_nonexistent(self):
+        ''' Tests raise exception with trying to access the non-existent object. '''
+
+        configure_for_unittest()
         from models import Chat
+        from neomodel import DoesNotExist
 
-    def test_create(self):
+        with self.assertRaises(DoesNotExist):
+            Chat.nodes.get(id=-1)
+
+    def test_multiple_returned(self):
+        ''' Tests raise exception with trying to access multiple returned objects
+            with .get().
+        '''
+
+        configure_for_unittest()
         from models import Chat
+        from neomodel import MultipleNodesReturned
 
-        shared.config = configure_for_unittest()
-        shared.session = Session.connect(shared.config['database']['name'],
-                                         safe=True)
+        Chat(id=1).save()
+        Chat(id=2).save()
 
-        chat = Chat(id=1)
-
-        try:
-            shared.session.save(chat)
-        except Exception as e:
-            del shared.session
-            self.fail(e)
-        del shared.session
+        with self.assertRaises(MultipleNodesReturned):
+            Chat.nodes.get(id__lt=10)
 
 
 class TestShow(unittest.TestCase):
 
-    def test_existence(self):
+    def test_create_duplicates(self):
+        ''' Tests raise exception with trying to create duplicates. '''
+
+        configure_for_unittest()
         from models import Show
+        from neomodel import UniqueProperty
 
-    def test_create(self):
-        from models import Show
-
-        shared.config = configure_for_unittest()
-        shared.session = Session.connect(shared.config['database']['name'],
-                                         safe=True)
-
-        show = Show(title='House of Cards')
-
-        try:
-            shared.session.save(show)
-        except Exception as e:
-            del shared.session
-            self.fail(e)
-        del shared.session
-
-    def test_remove(self):
-        from models import Show, Season, Episode
-
-        shared.config = configure_for_unittest()
-        shared.session = Session.connect(shared.config['database']['name'],
-                                         safe=True)
-
-        show = Show(title='House of Cards')
-        season = Season(show=show, number=1)
-        shared.session.save(show)
-        shared.session.save(season)
-        del show, season
-
-        show = shared.session.query(Show).filter(Show.title == 'House of Cards').first()
-        for season in list(shared.session.query(Season).filter(Season.show.mongo_id == show.mongo_id)):
-            for episode in list(shared.session.query(Episode).filter(Episode.season.mongo_id == season.mongo_id)):
-                shared.session.remove(episode)
-            shared.session.remove(season)
-        shared.session.remove(show)
-
-        counts = (shared.session.query(Show).count(),
-                  shared.session.query(Season).count())
-        del shared.session
-
-        self.assertEqual(0, sum(counts))
-
-    def test_duplicate(self):
-        from models import Show
-
-        shared.config = configure_for_unittest()
-        shared.session = Session.connect(shared.config['database']['name'],
-                                         safe=True)
-
-        show1 = Show(title='House of Cards')
+        show1 = Show(title='House of Cards').save()
         show2 = Show(title='House of Cards')
 
-        shared.session.save(show1)
+        with self.assertRaises(UniqueProperty):
+            show2.save()
 
-        with self.assertRaises(DuplicateKeyError):
-            shared.session.save(show2)
+    def test_nonexistent(self):
+        ''' Tests raise exception with trying to access the non-existent object. '''
+
+        configure_for_unittest()
+        from models import Show
+        from neomodel import DoesNotExist
+
+        with self.assertRaises(DoesNotExist):
+            Show.nodes.get(title_lower='nonexistent serial')
+
+    def test_multiple_returned(self):
+        ''' Tests raise exception with trying to access multiple returned objects
+            with .get().
+        '''
+
+        configure_for_unittest()
+        from models import Show
+        from neomodel import MultipleNodesReturned
+
+        Show(title='House of Cards').save()
+        Show(title='Teacher Gym').save()
+
+        with self.assertRaises(MultipleNodesReturned):
+            Show.nodes.get(title__ne='Kitchen')
+
+    def test_availability(self):
+        ''' Tests availabity properties of object. '''
+
+        configure_for_unittest()
+        from models import Show, Season, Episode
+
+        show = Show(title='House of Cards').save()
+        season1 = Season(show=show, number=1).save()
+        season2 = Season(show=show, number=2).save()
+        episode1 = Episode(season=season1, number=1, link_to_video='1').save()
+        episode2 = Episode(season=season1, number=2).save()
+        episode3 = Episode(season=season2, number=1).save()
+
+        show.seasons.connect(season1)
+        show.seasons.connect(season2)
+        season1.episodes.connect(episode1)
+        season1.episodes.connect(episode2)
+        season2.episodes.connect(episode3)
+
+        self.assertEqual(show.available_seasons[0], season1)
+        self.assertEqual(show.unavailable_seasons[0], season2)
 
 
 class TestSeason(unittest.TestCase):
 
-    def test_existence(self):
-        from models import Season
+    def test_availability(self):
+        ''' Tests availabity properties of object. '''
 
-    def test_create(self):
-        from models import Show, Season
-
-        shared.config = configure_for_unittest()
-        shared.session = Session.connect(shared.config['database']['name'],
-                                         safe=True)
-
-        show = Show(title='House of Cards')
-        shared.session.save(show)
-
-        season = Season(show=show, number=1)
-        try:
-            shared.session.save(season)
-        except Exception as e:
-            del shared.session
-            self.fail(e)
-        del shared.session
-
-    def test_remove(self):
+        configure_for_unittest()
         from models import Show, Season, Episode
 
-        shared.config = configure_for_unittest()
-        shared.session = Session.connect(shared.config['database']['name'],
-                                         safe=True)
+        show = Show(title='House of Cards').save()
+        season1 = Season(show=show, number=1).save()
+        season2 = Season(show=show, number=2).save()
+        episode1 = Episode(season=season1, number=1, link_to_video='1').save()
+        episode2 = Episode(season=season1, number=2).save()
 
-        show = Show(title='House of Cards')
-        season = Season(show=show, number=1)
-        episode = Episode(title='Chapter 1',
-                          number=1,
-                          season=season,
-                          release=datetime(2013,1,1))
-        shared.session.save(show)
-        shared.session.save(season)
-        del show, season, episode
+        show.seasons.connect(season1)
+        show.seasons.connect(season2)
+        season1.episodes.connect(episode1)
+        season1.episodes.connect(episode2)
 
-        season = shared.session.query(Season).filter(Season.show.title == 'House of Cards',
-                                                     Season.number == 1).first()
-        for episode in list(shared.session.query(Episode).filter(Episode.season.mongo_id == season.mongo_id)):
-            shared.session.remove(episode)
-        shared.session.remove(season)
-
-        counts = (shared.session.query(Season).count(),
-                  shared.session.query(Episode).count())
-        del shared.session
-
-        self.assertEqual(0, sum(counts))
+        self.assertEqual(season1.available_episodes[0], episode1)
+        self.assertEqual(season1.unavailable_episodes[0], episode2)
 
 
 class TestEpisode(unittest.TestCase):
 
-    def test_existence(self):
-        from models import Episode
+    def test_availability(self):
+        ''' Tests availabity properties of object. '''
 
+        configure_for_unittest()
+        from models import Show, Season, Episode
 
-class TestSubscription(unittest.TestCase):
+        show = Show(title='House of Cards').save()
+        season1 = Season(show=show, number=1).save()
+        season2 = Season(show=show, number=2).save()
+        episode1 = Episode(season=season1, number=1, link_to_video='1').save()
+        episode2 = Episode(season=season1, number=2).save()
+        episode3 = Episode(season=season2, number=1).save()
 
-    def test_existence(self):
-        from models import Subscription
+        show.seasons.connect(season1)
+        show.seasons.connect(season2)
+        season1.episodes.connect(episode1)
+        season1.episodes.connect(episode2)
+        season2.episodes.connect(episode3)
 
-    def test_create(self):
-        from models import Show, Chat, Subscription
-
-        shared.config = configure_for_unittest()
-        shared.session = Session.connect(shared.config['database']['name'],
-                                         safe=True)
-
-        chat = Chat(id=1)
-        show = Show(title='House of Cards')
-        shared.session.save(show)
-        shared.session.save(chat)
-        del chat, show
-
-        show = shared.session.query(Show).filter(Show.title == 'House of Cards').first()
-        chat = shared.session.query(Chat).filter(Chat.id == 1).first()
-        subs = Subscription(chat=chat, show=show)
-
-        try:
-            shared.session.save(subs)
-        except Exception as e:
-            del shared.session
-            self.fail(e)
-        del shared.session
-
-    def test_remove(self):
-        from models import Show, Chat, Subscription
-
-        shared.config = configure_for_unittest()
-        shared.session = Session.connect(shared.config['database']['name'],
-                                         safe=True)
-
-        chat = Chat(id=1)
-        show = Show(title='House of Cards')
-        subs = Subscription(chat=chat, show=show)
-        shared.session.save(show)
-        shared.session.save(chat)
-        shared.session.save(subs)
-        del chat, show, subs
-
-        subs = shared.session.query(Subscription).filter(Subscription.chat.id==1,
-                                                         Subscription.show.title=='House of Cards').first()
-        shared.session.remove(subs)
-
-        count = shared.session.query(Subscription).count()
-        del shared.session
-
-        self.assertEqual(0, count)
+        self.assertTrue(episode1.is_available)
+        self.assertFalse(episode2.is_available)
 
 
 if __name__ == '__main__':

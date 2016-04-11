@@ -1,46 +1,117 @@
-from mongoalchemy.document import Document, Index
-from mongoalchemy.fields import *
+from neomodel import (StructuredNode, StringProperty, IntegerProperty, db,
+                      DateTimeProperty, RelationshipTo, RelationshipFrom, One, ZeroOrMore)
 
 
-class Chat(Document):
-    config_collection_name = 'chats'
+class Chat(StructuredNode):
 
-    id = IntField(min_value=0)
-    lang = EnumField(StringField(), 'en', 'ru')
-    ref = StringField()
+    # telegram chat ID
+    id = IntegerProperty(unique_index=True, required=True)
 
+    # preferred language
+    language = StringProperty(default='en')
 
-class Show(Document):
-    config_collection_name = 'shows'
-
-    title = StringField()
-
-    @computed_field(StringField(), deps=[title])
-    def title_lower(obj):
-        return obj.get('title','').lower()
-
-    t_index = Index().ascending('title').unique()
+    # traverse outgoing IS_SUBSCRIBED_FOR relation, inflate to Show objects
+    subscriptions = RelationshipTo('Show', 'IS_SUBSCRIBED_FOR')
 
 
-class Season(Document):
-    config_collection_name = 'seasones'
+class Show(StructuredNode):
+    def __init__(self, *args, **kwargs):
 
-    show = DocumentField(Show)
-    number = IntField(min_value=0)
+        # leads to lower case title
+        if 'title' in kwargs:
+            kwargs['title_lower'] = kwargs['title'].lower()
+
+        try:
+            super(Show, self).__init__(*args, **kwargs)
+        except:
+            pass
+
+    title = StringProperty(required=True)
+    title_lower = StringProperty(unique_index=True, required=True)
+
+    # traverse incoming IS_SUBSCRIBED_FOR relation, inflate to Person objects
+    subscribers = RelationshipFrom('Chat', 'IS_SUBSCRIBED_FOR')
+
+    # traverse outgoing HAS relation, inflate to Season objects
+    seasons = RelationshipTo('Season', 'HAS')
+
+    @property
+    def available_seasons(self):
+        return [s for s in self.seasons.all()
+                if len(s.episodes.search(link_to_video__ne=''))]
+
+    @property
+    def unavailable_seasons(self):
+        return [s for s in self.seasons.all()
+                if not len(s.episodes.search(link_to_video__ne=''))]
 
 
-class Episode(Document):
-    config_collection_name = 'episodes'
+class Season(StructuredNode):
+    def __init__(self, *args, **kwargs):
 
-    title = StringField()
-    number = IntField(min_value=0)
-    season = DocumentField(Season)
-    release = DateTimeField()
-    url = StringField(required=False)
+        # creates a unique index
+        if 'show' in kwargs:
+            kwargs['id'] = '%s s%d' % (kwargs['show'].title_lower, kwargs['number'])
+            del kwargs['show']
+
+        try:
+            super(Season, self).__init__(*args, **kwargs)
+        except:
+            pass
+
+    # serial number of season
+    number = IntegerProperty(required=True)
+
+    # identifier for indexing
+    id = StringProperty(unique_index=True, required=True)
+
+    # traverse incoming HAS relation, inflate to Show objects
+    show = RelationshipFrom('Show', 'HAS', cardinality=One)
+
+    # traverse outgoing HAS relation, inflate to Episode objects
+    episodes = RelationshipTo('Episode', 'HAS')
+
+    @property
+    def available_episodes(self):
+        return [ep for ep in self.episodes.all() if ep.is_available]
+
+    @property
+    def unavailable_episodes(self):
+        return [ep for ep in self.episodes.all() if not ep.is_available]
 
 
-class Subscription(Document):
-    config_collection_name = 'subscriptions'
+class Episode(StructuredNode):
+    def __init__(self, *args, **kwargs):
 
-    chat = DocumentField(Chat)
-    show = DocumentField(Show)
+        # creates a unique index
+        if 'season' in kwargs:
+            kwargs['id'] = '%s e%d' % (kwargs['season'].id, kwargs['number'])
+            del kwargs['season']
+
+        try:
+            super(Episode, self).__init__(*args, **kwargs)
+        except:
+            pass
+
+    # serial number of series
+    number = IntegerProperty(required=True)
+
+    # identifier for indexing
+    id = StringProperty(unique_index=True, required=True)
+
+    title = StringProperty()
+
+    release_date = DateTimeProperty()
+
+    link_to_video = StringProperty()
+
+    # traverse incoming HAS relation, inflate to Season objects
+    season = RelationshipFrom('Season', 'HAS', cardinality=One)
+
+    @property
+    def show(self):
+        return self.season.get().show
+
+    @property
+    def is_available(self):
+        return not self.link_to_video in ['', None]
