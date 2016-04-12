@@ -1,5 +1,8 @@
+import __builtin__ as shared
+
 from neomodel import (StructuredNode, StringProperty, IntegerProperty, db,
-                      DateTimeProperty, RelationshipTo, RelationshipFrom, One, ZeroOrMore)
+                      DateTimeProperty, RelationshipTo, RelationshipFrom, One,
+                      ZeroOrMore, DoesNotExist)
 
 
 class Chat(StructuredNode):
@@ -12,6 +15,20 @@ class Chat(StructuredNode):
 
     # traverse outgoing IS_SUBSCRIBED_FOR relation, inflate to Show objects
     subscriptions = RelationshipTo('Show', 'IS_SUBSCRIBED_FOR')
+
+    @staticmethod
+    def get_or_create(id):
+        ''' Returns an object, creating it if necessary. '''
+
+        try:
+            chat = Chat.nodes.get(id=id)
+        except DoesNotExist:
+            chat = Chat(id=id).save()
+
+        # Set the language of the responses
+        shared.translations[chat.language].install()
+
+        return chat
 
 
 class Show(StructuredNode):

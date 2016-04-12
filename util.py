@@ -14,9 +14,9 @@ def get_translations(locales):
 
     '''
 
-    return [(locale, translation('default',
-                                 localedir='locale',
-                                 languages=[locale])) for locale in locales]
+    return dict([(locale, translation('default',
+                                      localedir='locale',
+                                      languages=[locale])) for locale in locales])
 
 
 def configure_from_file(path_to_file):

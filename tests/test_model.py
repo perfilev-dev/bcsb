@@ -15,7 +15,7 @@ class TestChat(unittest.TestCase):
         ''' Tests raise exception with trying to access the non-existent object. '''
 
         configure_for_unittest()
-        from models import Chat
+        from model import Chat
         from neomodel import DoesNotExist
 
         with self.assertRaises(DoesNotExist):
@@ -27,7 +27,7 @@ class TestChat(unittest.TestCase):
         '''
 
         configure_for_unittest()
-        from models import Chat
+        from model import Chat
         from neomodel import MultipleNodesReturned
 
         Chat(id=1).save()
@@ -36,6 +36,17 @@ class TestChat(unittest.TestCase):
         with self.assertRaises(MultipleNodesReturned):
             Chat.nodes.get(id__lt=10)
 
+    def test_get_or_create(self):
+        ''' Tests the creation of the object, if necessary. '''
+
+        configure_for_unittest()
+        from model import Chat
+
+        Chat(id=1).save()
+
+        chat1 = Chat.get_or_create(id=1)
+        chat2 = Chat.get_or_create(id=2)
+
 
 class TestShow(unittest.TestCase):
 
@@ -43,7 +54,7 @@ class TestShow(unittest.TestCase):
         ''' Tests raise exception with trying to create duplicates. '''
 
         configure_for_unittest()
-        from models import Show
+        from model import Show
         from neomodel import UniqueProperty
 
         show1 = Show(title='House of Cards').save()
@@ -56,7 +67,7 @@ class TestShow(unittest.TestCase):
         ''' Tests raise exception with trying to access the non-existent object. '''
 
         configure_for_unittest()
-        from models import Show
+        from model import Show
         from neomodel import DoesNotExist
 
         with self.assertRaises(DoesNotExist):
@@ -68,7 +79,7 @@ class TestShow(unittest.TestCase):
         '''
 
         configure_for_unittest()
-        from models import Show
+        from model import Show
         from neomodel import MultipleNodesReturned
 
         Show(title='House of Cards').save()
@@ -81,7 +92,7 @@ class TestShow(unittest.TestCase):
         ''' Tests availabity properties of object. '''
 
         configure_for_unittest()
-        from models import Show, Season, Episode
+        from model import Show, Season, Episode
 
         show = Show(title='House of Cards').save()
         season1 = Season(show=show, number=1).save()
@@ -106,7 +117,7 @@ class TestSeason(unittest.TestCase):
         ''' Tests availabity properties of object. '''
 
         configure_for_unittest()
-        from models import Show, Season, Episode
+        from model import Show, Season, Episode
 
         show = Show(title='House of Cards').save()
         season1 = Season(show=show, number=1).save()
@@ -129,7 +140,7 @@ class TestEpisode(unittest.TestCase):
         ''' Tests availabity properties of object. '''
 
         configure_for_unittest()
-        from models import Show, Season, Episode
+        from model import Show, Season, Episode
 
         show = Show(title='House of Cards').save()
         season1 = Season(show=show, number=1).save()
