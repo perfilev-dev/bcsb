@@ -13,8 +13,18 @@ class Chat(StructuredNode):
     # preferred language
     language = StringProperty(default='en')
 
+    referer = StringProperty(default='')
+
     # traverse outgoing IS_SUBSCRIBED_FOR relation, inflate to Show objects
     subscriptions = RelationshipTo('Show', 'IS_SUBSCRIBED_FOR')
+
+    # autosetting language on saving object
+    def save(self):
+
+        # Set the language of the responses
+        shared.translations[self.language].install()
+
+        return super(Chat, self).save()
 
     @staticmethod
     def get_or_create(id):
@@ -62,6 +72,10 @@ class Show(StructuredNode):
         return [s for s in self.seasons.all()
                 if not len(s.episodes.search(link_to_video__ne=''))]
 
+    @property
+    def is_available(self):
+        return bool(len(self.available_seasons))
+
 
 class Season(StructuredNode):
     def __init__(self, *args, **kwargs):
@@ -95,6 +109,10 @@ class Season(StructuredNode):
     @property
     def unavailable_episodes(self):
         return [ep for ep in self.episodes.all() if not ep.is_available]
+
+    @property
+    def is_available(self):
+        return bool(len(self.available_episodes))
 
 
 class Episode(StructuredNode):
