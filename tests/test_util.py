@@ -17,3 +17,7 @@ class TestConfig(unittest.TestCase):
 
         graph = Graph(environ['NEO4J_REST_URL'])
         cypher = graph.cypher
+
+
+if __name__ == '__main__':
+    unittest.main()
