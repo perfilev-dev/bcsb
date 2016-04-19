@@ -17,6 +17,8 @@ from model import Show, Season, Episode
 import neomodel
 import datetime
 
+import argparse
+
 
 MONTHS = [
     u'января',
@@ -138,3 +140,13 @@ def add_or_update_show(title):
                     link_to_video=''
                 ).save()
                 season.episodes.connect(episode)
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--add', default='', type=str)
+    args = parser.parse_args()
+
+    if args.add:
+        print 'adding ' + args.add
+        add_or_update_show(args.add)
