@@ -141,6 +141,123 @@ def add_or_update_show(title):
                 ).save()
                 season.episodes.connect(episode)
 
+def get_episode_urls(episode):
+
+    episode_number = episode.number
+    episode_title = unicode(episode.title.lower())
+    season_number = episode.season.number
+    show_title = unicode(episode.season.show.title.lower())
+
+    vk_token = shared.config['vk']['token']
+
+    GET_VIDEOS_TMPL = u'https://api.vk.com/method/video.search?q={0}&sort=0&access_token={1}&v=5.50&longer={2}&count=200&offset={3}'
+
+    episode_name = u'{} сезон {} серия {}'.format(show_title, season_number, episode_number)
+
+
+    def get_video_list(offset=0):
+
+        if offset > 400:
+            return []
+
+        query = GET_VIDEOS_TMPL.format(episode_name, vk_token, 600, offset)
+
+        requests.packages.urllib3.disable_warnings()
+        response = requests.get(query).text
+        response_json = json.loads(response)
+
+        if 'error' in response_json:
+            code = response_json['error']['error_code']
+            message = response_json['error']['error_msg']
+            print code, message
+            return []
+
+        if not response_json['response']['items']:
+            return []
+
+        if response_json['response']['count'] > 200:
+            result = response_json['response']['items']
+            result.extend(get_video_list(offset + 200))
+            return result
+
+        return []
+
+    result = get_video_list()
+
+    def filter_videos(list_of_videos, show_name, season_number, episode_number, episode_title):
+
+        result = []
+
+        for element in list_of_videos:
+
+            element_title = element['title'].lower()
+            element_description = element['description'].lower()
+            # Если название сериала нет в title - пропускаем
+            if show_name not in element_title:
+                continue
+
+            # Проверяем title
+            if u'сезон {} '.format(season_number) in element_title and u'серия {}'.format(episode_number) in element_title:
+                # Если мы искали серию 2, а получили 21 - пропускаем
+                next_index = element_title.find(u'серия {}'.format(episode_number)) + len(u'серия {}'.format(episode_number))
+                if len(element_title) > next_index and element_title[next_index] in '0123456789':
+                    continue
+                result.append(element)
+                continue
+
+            # Проверяем title
+            if u' {} сезон'.format(season_number) in element_title and u' {} серия'.format(episode_number) in element_title:
+                result.append(element)
+                continue
+
+            # Проверяем title
+            if episode_title in element_title:
+                result.append(element)
+                continue
+
+            # Проверяем description
+            if u'сезон {} '.format(season_number) in element_description and u'серия {}'.format(episode_number) in element_description:
+                # Если мы искали серию 2, а получили 21 - пропускаем
+                next_index = element_description.find(u'серия {}'.format(episode_number)) + len(u'серия {}'.format(episode_number))
+                if len(element_description) > next_index and element_description[next_index] in '0123456789':
+                    continue
+                result.append(element)
+                continue
+
+            # Проверяем description
+            if u' {} сезон'.format(season_number) in element_description and u' {} серия'.format(episode_number) in element_description:
+                result.append(element)
+                continue
+
+            # Наличие названия серии в description
+            if episode_title in element_description:
+                result.append(element)
+                continue
+
+        return sorted(result, key=lambda x: x['views'], reverse=True)
+
+    result = filter_videos(result, show_title, season_number, episode_number, episode_title)
+
+    result = []
+
+    for element in result:
+        if 'vk.com' in element['player']:
+            oid = element['player'].split('oid=')[1].split('&')[0]
+            vk_id = element['player'].split('&id=')[1].split('&')[0]
+            if not requests.get('http://vk.com/video{}_{}'.format(oid, vk_id)).status_code == 403:
+                result.append('http://vk.com/video{}_{}'.format(oid, vk_id))
+
+
+def update_episode_urls(episode):
+    urls = get_episode_url(episode)
+
+    for url in urls:
+        try:
+            video = Video.nodes.get(link=url)
+        except neomodel.DoesNotExist:
+            video = Video(link=url).save()
+            episode.videos.connect(video)
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
