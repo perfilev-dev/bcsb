@@ -238,14 +238,16 @@ def get_episode_urls(episode):
 
     result = filter_videos(result, show_title, season_number, episode_number, episode_title)
 
-    result = []
+    videos = []
 
     for element in result:
         if 'vk.com' in element['player']:
             oid = element['player'].split('oid=')[1].split('&')[0]
             vk_id = element['player'].split('&id=')[1].split('&')[0]
             if not requests.get('http://vk.com/video{}_{}'.format(oid, vk_id)).status_code == 403:
-                result.append('http://vk.com/video{}_{}'.format(oid, vk_id))
+                videos.append('http://vk.com/video{}_{}'.format(oid, vk_id))
+
+    return videos[:20]
 
 
 def update_episode_urls(episode):
