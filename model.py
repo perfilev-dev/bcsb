@@ -1,8 +1,15 @@
 import __builtin__ as shared
 
+from urlparse import urlparse
+from datetime import datetime as dt
 from neomodel import (StructuredNode, StringProperty, IntegerProperty, db,
                       DateTimeProperty, RelationshipTo, RelationshipFrom, One,
-                      ZeroOrMore, DoesNotExist)
+                      ZeroOrMore, DoesNotExist, StructuredRel)
+
+
+class RateRel(StructuredRel):
+
+    value = IntegerProperty(required=True)
 
 
 class Chat(StructuredNode):
@@ -17,6 +24,9 @@ class Chat(StructuredNode):
 
     # traverse outgoing IS_SUBSCRIBED_FOR relation, inflate to Show objects
     subscriptions = RelationshipTo('Show', 'IS_SUBSCRIBED_FOR')
+
+    # traverse outgoing RATE relation, inflate to Video objects
+    rated_videos = RelationshipTo('Video', 'RATE', model=RateRel)
 
     # autosetting language on saving object
     def save(self):
@@ -64,13 +74,11 @@ class Show(StructuredNode):
 
     @property
     def available_seasons(self):
-        return [s for s in self.seasons.all()
-                if len(s.episodes.search(link_to_video__ne=''))]
+        return [s for s in self.seasons.all() if s.is_available]
 
     @property
     def unavailable_seasons(self):
-        return [s for s in self.seasons.all()
-                if not len(s.episodes.search(link_to_video__ne=''))]
+        return [s for s in self.seasons.all() if not s.is_available]
 
     @property
     def is_available(self):
@@ -138,10 +146,11 @@ class Episode(StructuredNode):
 
     release_date = DateTimeProperty()
 
-    link_to_video = StringProperty()
-
     # traverse incoming HAS relation, inflate to Season objects
     season = RelationshipFrom('Season', 'HAS', cardinality=One)
+
+    # traverse outgoing HAS relation, inflate to Video objects
+    videos = RelationshipTo('Video', 'HAS')
 
     @property
     def show(self):
@@ -149,4 +158,58 @@ class Episode(StructuredNode):
 
     @property
     def is_available(self):
-        return not self.link_to_video in ['', None]
+        if not self.release_date is None:
+            return self.release_date.replace(tzinfo=None)
+        return False
+
+    def link_to_video_for_chat(self, chat_id):
+        ''' Returns a link using ratings. '''
+
+        videos = self.videos.all()
+        chat = Chat.get_or_create(chat_id)
+
+        # Return a good link or drop bad links
+        if [v for v in videos if (chat in v.critics and
+                                  v.critics.relationship(chat).value > 0)]:
+            return v.link
+        else:
+            videos = sorted([v for v in videos if chat not in v.critics],
+                            key=lambda x: -x.score)
+
+        if videos:
+            return videos[0].link
+        else:
+            # find and return a new video
+            raise NotImplementedError
+
+
+class Video(StructuredNode):
+    def __init__(self, *args, **kwargs):
+
+        # leads to lower case title
+        if 'link' in kwargs:
+            kwargs['url'] = ''.join(list(urlparse(kwargs['link'].lower()))[1:3])
+
+        try:
+            super(Video, self).__init__(*args, **kwargs)
+        except:
+            pass
+
+    # link to the video
+    url = StringProperty(unique_index=True, required=True)
+
+    # traverse incoming HAS relation, inflate to Episode objects
+    episode = RelationshipFrom('Episode', 'HAS', cardinality=One)
+
+    # traverse incoming HAS relation, inflate to Chat objects
+    critics = RelationshipFrom('Chat', 'RATE', model=RateRel)
+
+    @property
+    def link(self):
+        return self.url
+
+    @property
+    def score(self):
+        if self.critics.all():
+            return sum([c.relationship().value for c in self.critics])
+        return 0

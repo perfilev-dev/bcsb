@@ -2,6 +2,7 @@ import sys
 import unittest
 
 from os import path, environ
+from datetime import datetime as dt
 
 # Export dir for import module like from root directory
 sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
@@ -97,7 +98,7 @@ class TestShow(unittest.TestCase):
         show = Show(title='House of Cards').save()
         season1 = Season(show=show, number=1).save()
         season2 = Season(show=show, number=2).save()
-        episode1 = Episode(season=season1, number=1, link_to_video='1').save()
+        episode1 = Episode(season=season1, number=1, release_date=dt(2010,1,1)).save()
         episode2 = Episode(season=season1, number=2).save()
         episode3 = Episode(season=season2, number=1).save()
 
@@ -122,7 +123,7 @@ class TestSeason(unittest.TestCase):
         show = Show(title='House of Cards').save()
         season1 = Season(show=show, number=1).save()
         season2 = Season(show=show, number=2).save()
-        episode1 = Episode(season=season1, number=1, link_to_video='1').save()
+        episode1 = Episode(season=season1, number=1, release_date=dt(2010,1,1)).save()
         episode2 = Episode(season=season1, number=2).save()
 
         show.seasons.connect(season1)
@@ -145,7 +146,7 @@ class TestEpisode(unittest.TestCase):
         show = Show(title='House of Cards').save()
         season1 = Season(show=show, number=1).save()
         season2 = Season(show=show, number=2).save()
-        episode1 = Episode(season=season1, number=1, link_to_video='1').save()
+        episode1 = Episode(season=season1, number=1, release_date=dt(2010,1,1)).save()
         episode2 = Episode(season=season1, number=2).save()
         episode3 = Episode(season=season2, number=1).save()
 
@@ -157,6 +158,47 @@ class TestEpisode(unittest.TestCase):
 
         self.assertTrue(episode1.is_available)
         self.assertFalse(episode2.is_available)
+
+
+class TestVideo(unittest.TestCase):
+
+    def test_create_duplicates(self):
+        ''' Tests raise exception with trying to create duplicates. '''
+
+        configure_for_unittest()
+        from model import Video
+        from neomodel import UniqueProperty
+
+        video1 = Video(link='https://vk.com/blablabla').save()
+        video2 = Video(link='vk.com/blablabla')
+
+        with self.assertRaises(UniqueProperty):
+            video2.save()
+
+    def test_get_episode(self):
+        ''' Tests getting episode from video's field. '''
+
+        configure_for_unittest()
+        from model import Video, Show, Season, Episode
+
+        show = Show(title='House of Cards').save()
+        season1 = Season(show=show, number=1).save()
+        season2 = Season(show=show, number=2).save()
+        episode1 = Episode(season=season1, number=1, release_date=dt(2010,1,1)).save()
+        episode2 = Episode(season=season1, number=2).save()
+        episode3 = Episode(season=season2, number=1).save()
+        video = Video(link='vk.com').save()
+
+        show.seasons.connect(season1)
+        show.seasons.connect(season2)
+        season1.episodes.connect(episode1)
+        season1.episodes.connect(episode2)
+        season2.episodes.connect(episode3)
+        episode1.videos.connect(video)
+
+        video.refresh()
+
+        self.assertEqual(video.episode.get().number, 1)
 
 
 if __name__ == '__main__':

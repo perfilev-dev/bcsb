@@ -4,13 +4,14 @@ import sys
 import unittest
 
 from os import path, environ
+from datetime import datetime as dt
 
 # Export dir for import module like from root directory
 sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 
 from util import configure_for_unittest
 from telegram import (Bot, Update, Message, Chat,
-                      ReplyKeyboardMarkup, ReplyKeyboardHide)
+                      Emoji, ReplyKeyboardMarkup, ReplyKeyboardHide)
 
 
 class FakeChat(Chat):
@@ -235,22 +236,27 @@ class TestCommand(unittest.TestCase):
 
         configure_for_unittest()
         from command import watch
-        from model import Chat, Show, Season, Episode
+        from model import Chat, Show, Season, Episode, Video
 
         chat = Chat(id=1).save()
 
         show = Show(title='House of Cards').save()
         season1 = Season(show=show, number=1).save()
         season2 = Season(show=show, number=2).save()
-        episode1 = Episode(season=season1, number=1, link_to_video='1').save()
+        episode1 = Episode(season=season1, number=1, release_date=dt(2010,1,1)).save()
         episode2 = Episode(season=season1, number=2).save()
         episode3 = Episode(season=season2, number=1).save()
+        video1 = Video(link='link to video').save()
+        video2 = Video(link='one more link').save()
 
         show.seasons.connect(season1)
         show.seasons.connect(season2)
         season1.episodes.connect(episode1)
         season1.episodes.connect(episode2)
         season2.episodes.connect(episode3)
+        episode1.videos.connect(video1)
+        episode1.videos.connect(video2)
+        chat.rated_videos.connect(video1, {'value': 1})
 
         bot = FakeBot()
         upd = FakeUpdate(message=FakeMessage(chat=FakeChat(id=1)))
@@ -259,9 +265,14 @@ class TestCommand(unittest.TestCase):
         upd.message.text = '/watch house of cards s1 e1'
         watch(bot, upd)
 
-        self.assertEqual(bot.sended_message['text'], '1')
+        self.assertEqual(bot.sended_message['text'], 'link to video')
         self.assertEqual(bot.sended_message['chat_id'], 1)
-        self.assertEqual(type(bot.sended_message['reply_markup']), ReplyKeyboardHide)
+        self.assertEqual(type(bot.sended_message['reply_markup']), ReplyKeyboardMarkup)
+        self.assertEqual(bot.sended_message['reply_markup'].keyboard, [[Emoji.THUMBS_UP_SIGN,
+                                                                        Emoji.THUMBS_DOWN_SIGN]])
+
+        chat.referer = ''
+        chat.save()
 
         # valid request - without arguments
         upd.message.text = '/watch'
@@ -304,10 +315,15 @@ class TestCommand(unittest.TestCase):
 
         chat.refresh()
 
-        self.assertEqual(chat.referer, '')
-        self.assertEqual(bot.sended_message['text'], '1')
+        self.assertEqual(chat.referer, '/rate link to video')
+        self.assertEqual(bot.sended_message['text'], 'link to video')
         self.assertEqual(bot.sended_message['chat_id'], 1)
-        self.assertEqual(type(bot.sended_message['reply_markup']), ReplyKeyboardHide)
+        self.assertEqual(type(bot.sended_message['reply_markup']), ReplyKeyboardMarkup)
+        self.assertEqual(bot.sended_message['reply_markup'].keyboard, [[Emoji.THUMBS_UP_SIGN,
+                                                                        Emoji.THUMBS_DOWN_SIGN]])
+
+        chat.referer = ''
+        chat.save()
 
         # trying to watch non-existent TV show
         upd.message.text = '/watch kitchen'
@@ -357,23 +373,27 @@ class TestMessage(unittest.TestCase):
 
         configure_for_unittest()
         from command import default, subscribe, unsubscribe, setlanguage, watch
-        from model import Chat, Show, Season, Episode
+        from model import Chat, Show, Season, Episode, Video
 
         chat = Chat(id=1).save()
 
         show = Show(title='House of Cards').save()
         season1 = Season(show=show, number=1).save()
         season2 = Season(show=show, number=2).save()
-        episode1 = Episode(season=season1, number=1, link_to_video='1').save()
+        episode1 = Episode(season=season1, number=1, release_date=dt(2010,1,1)).save()
         episode2 = Episode(season=season1, number=2).save()
         episode3 = Episode(season=season2, number=1).save()
+        video1 = Video(link='link to video').save()
+        video2 = Video(link='one more link').save()
 
-        chat.subscriptions.connect(show)
         show.seasons.connect(season1)
         show.seasons.connect(season2)
         season1.episodes.connect(episode1)
         season1.episodes.connect(episode2)
         season2.episodes.connect(episode3)
+        episode1.videos.connect(video1)
+        episode1.videos.connect(video2)
+        chat.rated_videos.connect(video1, {'value': 1})
 
         bot = FakeBot()
         upd = FakeUpdate(message=FakeMessage(chat=FakeChat(id=1)))
@@ -391,7 +411,7 @@ class TestMessage(unittest.TestCase):
         upd.message.text = 'house of cards'
         default(bot, upd)
 
-        self.assertEqual(bot.sended_message['text'], _('You are already subscribed to this series.'))
+        self.assertEqual(bot.sended_message['text'], _('You have subscribed to the show.'))
 
         # unsubscribe in 2 steps
         upd.message.text = '/unsubscribe'
@@ -430,8 +450,37 @@ class TestMessage(unittest.TestCase):
         upd.message.text = '1'
         default(bot, upd)
 
-        self.assertEqual(bot.sended_message['text'], '1')
-        
+        self.assertEqual(bot.sended_message['text'], 'link to video')
+
+        chat.referer = ''
+        chat.save()
+
+        # positive review - say 'thank you'
+        upd.message.text = '/watch house of cards s1 e1'
+        watch(bot, upd)
+
+        upd.message.text = Emoji.THUMBS_UP_SIGN
+        default(bot, upd)
+
+        self.assertEqual(bot.sended_message['text'], _('Thanks for the feedback!'))
+        self.assertEqual(bot.sended_message['chat_id'], 1)
+        self.assertEqual(type(bot.sended_message['reply_markup']), ReplyKeyboardHide)
+
+        # negative review - return other link to video
+        upd.message.text = '/watch house of cards s1 e1'
+        watch(bot, upd)
+
+        chat.refresh()
+
+        upd.message.text = Emoji.THUMBS_DOWN_SIGN
+        default(bot, upd)
+
+        self.assertEqual(bot.sended_message['text'], 'one more link')
+        self.assertEqual(bot.sended_message['chat_id'], 1)
+        self.assertEqual(type(bot.sended_message['reply_markup']), ReplyKeyboardMarkup)
+        self.assertEqual(bot.sended_message['reply_markup'].keyboard, [[Emoji.THUMBS_UP_SIGN,
+                                                                        Emoji.THUMBS_DOWN_SIGN]])
+
 
 if __name__ == '__main__':
     unittest.main()

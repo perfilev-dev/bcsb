@@ -144,9 +144,10 @@ def add_or_update_show(title):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--add', default='', type=str)
+    parser.add_argument('--add', default='', nargs='+')
     args = parser.parse_args()
 
     if args.add:
-        print 'adding ' + args.add
-        add_or_update_show(args.add)
+        show_title = ' '.join(args.add)
+        print 'adding ' + show_title
+        add_or_update_show(show_title)

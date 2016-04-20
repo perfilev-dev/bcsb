@@ -2,7 +2,7 @@ import re
 import __builtin__ as shared
 
 from neomodel import DoesNotExist
-from model import Chat, Show, Season, Episode
+from model import Chat, Show, Season, Episode, Video
 from telegram import Emoji, ReplyKeyboardMarkup, ReplyKeyboardHide
 
 
@@ -197,8 +197,10 @@ def watch(bot, update):
                                         episode = season.episodes.get(number=episode_number)
 
                                         if episode.is_available:
-                                            response = episode.link_to_video
-                                            chat.referer = ''
+                                            response = episode.link_to_video_for_chat(1)
+                                            chat.referer = '/rate ' + response
+                                            reply_markup = ReplyKeyboardMarkup([
+                                                [Emoji.THUMBS_UP_SIGN, Emoji.THUMBS_DOWN_SIGN]])
                                         else:
                                             raise DoesNotExist({'episode_number': episode_number})
                                     except DoesNotExist:
@@ -237,6 +239,26 @@ def watch(bot, update):
                     reply_markup=reply_markup)
     chat.save()
 
+def rate(bot, update):
+    ''' Provides the ability to rate videos. '''
+
+    chat = Chat.get_or_create(id=update.message.chat_id)
+    video = Video.nodes.get(url=update.message.text[6:-3])
+
+    chat.rated_videos.disconnect(video)
+    chat.referer = ''
+    chat.save()
+
+    if update.message.text.split()[-1] == unicode(Emoji.THUMBS_UP_SIGN, 'utf-8'):
+        chat.rated_videos.connect(video, {'value': 1})
+        bot.sendMessage(chat_id=update.message.chat_id,
+                        text= _('Thanks for the feedback!'),
+                        reply_markup=ReplyKeyboardHide())
+    elif update.message.text.split()[-1] == unicode(Emoji.THUMBS_DOWN_SIGN, 'utf-8'):
+        chat.rated_videos.connect(video, {'value': -1})
+        update.message.text = ' '.join(['/watch', video.episode.get().id])
+        watch(bot, update)
+
 def default(bot, update):
     ''' Handles messages that are not commands. '''
 
@@ -251,6 +273,9 @@ def default(bot, update):
     elif chat.referer.startswith('/setlanguage'):
         update.message.text = ' '.join([chat.referer, update.message.text])
         setlanguage(bot, update)
+    elif chat.referer.startswith('/rate'):
+        update.message.text = ' '.join([chat.referer, unicode(update.message.text, 'utf-8')])
+        rate(bot, update)
     elif chat.referer.startswith('/watch'):
         pairs = re.findall(r'([a-z]+)([0-9]+)', chat.referer)
         update.message.text = (' %s' % (

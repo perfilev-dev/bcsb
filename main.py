@@ -7,7 +7,7 @@ from util import configure_from_file
 # Configure bot for normal mode
 configure_from_file('default.cfg')
 
-from command import start
+from command import start, showlist, setlanguage, subscribe, unsubscribe, subscriptions, default, watch
 
 
 if __name__ == '__main__':
@@ -16,5 +16,14 @@ if __name__ == '__main__':
     dispatcher = updater.dispatcher
 
     dispatcher.addTelegramCommandHandler('start', start)
+    dispatcher.addTelegramCommandHandler('showlist', showlist)
+    dispatcher.addTelegramCommandHandler('setlanguage',setlanguage)
+    dispatcher.addTelegramCommandHandler('subscribe',subscribe)
+    dispatcher.addTelegramCommandHandler('unsubscribe',unsubscribe)
+    dispatcher.addTelegramCommandHandler('subscriptions',subscriptions)
+    dispatcher.addTelegramCommandHandler('watch',watch)
+    dispatcher.addTelegramMessageHandler(default)
 
     updater.start_polling()
+
+    print 'ok'
