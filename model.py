@@ -4,7 +4,7 @@ from urlparse import urlparse
 from datetime import datetime as dt
 from neomodel import (StructuredNode, StringProperty, IntegerProperty, db,
                       DateTimeProperty, RelationshipTo, RelationshipFrom, One,
-                      ZeroOrMore, DoesNotExist, StructuredRel)
+                      ZeroOrMore, DoesNotExist, StructuredRel, BooleanProperty)
 
 
 class RateRel(StructuredRel):
@@ -146,6 +146,8 @@ class Episode(StructuredNode):
 
     release_date = DateTimeProperty()
 
+    is_already_shown = BooleanProperty(default=False)
+
     # traverse incoming HAS relation, inflate to Season objects
     season = RelationshipFrom('Season', 'HAS', cardinality=One)
 
@@ -159,28 +161,8 @@ class Episode(StructuredNode):
     @property
     def is_available(self):
         if not self.release_date is None:
-            return self.release_date.replace(tzinfo=None)
+            return self.release_date.replace(tzinfo=None) < dt.utcnow()
         return False
-
-    def link_to_video_for_chat(self, chat_id):
-        ''' Returns a link using ratings. '''
-
-        videos = self.videos.all()
-        chat = Chat.get_or_create(chat_id)
-
-        # Return a good link or drop bad links
-        if [v for v in videos if (chat in v.critics and
-                                  v.critics.relationship(chat).value > 0)]:
-            return v.link
-        else:
-            videos = sorted([v for v in videos if chat not in v.critics],
-                            key=lambda x: -x.score)
-
-        if videos:
-            return videos[0].link
-        else:
-            # find and return a new video
-            raise NotImplementedError
 
 
 class Video(StructuredNode):
@@ -211,5 +193,5 @@ class Video(StructuredNode):
     @property
     def score(self):
         if self.critics.all():
-            return sum([c.relationship().value for c in self.critics])
+            return sum([self.critics.relationship(c).value for c in self.critics])
         return 0

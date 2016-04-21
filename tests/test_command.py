@@ -58,8 +58,8 @@ class TestCommand(unittest.TestCase):
         from command import showlist
         from model import Show, Chat
 
-        show1 = Show(title='House of Cards').save()
-        show2 = Show(title='Teacher Gym').save()
+        show1 = Show(title=u'House of Cards').save()
+        show2 = Show(title=u'Физрук').save()
         chat = Chat(id=1).save()
 
         chat.subscriptions.connect(show1)
@@ -69,11 +69,13 @@ class TestCommand(unittest.TestCase):
 
         showlist(bot, upd)
 
-        lines = ('Available TV shows:\n',
-                 '▪ House of Cards',
-                 '▫ Teacher Gym')
+        lines = (u'Available TV shows:\n',
+                 u'▪ House of Cards',
+                 u'▫ Физрук')
 
-        self.assertEqual(bot.sended_message['text'], '\n'.join(lines))
+        print bot.sended_message['text']
+
+        self.assertEqual(bot.sended_message['text'], u'\n'.join(lines))
         self.assertEqual(bot.sended_message['chat_id'], 1)
         self.assertEqual(type(bot.sended_message['reply_markup']), ReplyKeyboardHide)
 
@@ -84,8 +86,8 @@ class TestCommand(unittest.TestCase):
         from command import subscriptions
         from model import Show, Chat
 
-        show1 = Show(title='House of Cards').save()
-        show2 = Show(title='Teacher Gym').save()
+        show1 = Show(title=u'House of Cards').save()
+        show2 = Show(title=u'Teacher Gym').save()
         chat = Chat(id=1).save()
 
         bot = FakeBot()
@@ -95,8 +97,8 @@ class TestCommand(unittest.TestCase):
         chat.subscriptions.connect(show1)
         subscriptions(bot, upd)
 
-        lines = ('Active subscriptions:\n',
-                 '▪ House of Cards')
+        lines = (u'Active subscriptions:\n',
+                 u'▪ House of Cards')
 
         self.assertEqual(bot.sended_message['text'], '\n'.join(lines))
         self.assertEqual(bot.sended_message['chat_id'], 1)
@@ -271,7 +273,7 @@ class TestCommand(unittest.TestCase):
         self.assertEqual(bot.sended_message['reply_markup'].keyboard, [[Emoji.THUMBS_UP_SIGN,
                                                                         Emoji.THUMBS_DOWN_SIGN]])
 
-        chat.referer = ''
+        chat.referer = '' # bot is waiting for feedback
         chat.save()
 
         # valid request - without arguments
@@ -364,6 +366,67 @@ class TestCommand(unittest.TestCase):
         self.assertEqual(bot.sended_message['text'], _('This episode is not available.'))
         self.assertEqual(bot.sended_message['chat_id'], 1)
         self.assertEqual(type(bot.sended_message['reply_markup']), ReplyKeyboardHide)
+
+    def test_rate(self):
+        ''' Tests rating of video. '''
+
+        configure_for_unittest()
+        from command import rate
+        from model import Chat, Show, Season, Episode, Video
+
+        chat = Chat(id=1).save()
+
+        show = Show(title='House of Cards').save()
+        season1 = Season(show=show, number=1).save()
+        season2 = Season(show=show, number=2).save()
+        episode1 = Episode(season=season1, number=1, release_date=dt(2010,1,1)).save()
+        episode2 = Episode(season=season1, number=2).save()
+        episode3 = Episode(season=season2, number=1).save()
+        video1 = Video(link='link to video').save()
+        video2 = Video(link='one more link').save()
+
+        show.seasons.connect(season1)
+        show.seasons.connect(season2)
+        season1.episodes.connect(episode1)
+        season1.episodes.connect(episode2)
+        season2.episodes.connect(episode3)
+        episode1.videos.connect(video1)
+        episode1.videos.connect(video2)
+        chat.rated_videos.connect(video1, {'value': 1})
+
+        bot = FakeBot()
+        upd = FakeUpdate(message=FakeMessage(chat=FakeChat(id=1)))
+
+        # positive review
+        upd.message.text = ' '.join(['/rate link to video', unicode(Emoji.THUMBS_UP_SIGN, 'utf-8')])
+        rate(bot, upd)
+
+        self.assertEqual(bot.sended_message['text'], _('Thanks for the feedback!'))
+        self.assertEqual(bot.sended_message['chat_id'], 1)
+        self.assertEqual(type(bot.sended_message['reply_markup']), ReplyKeyboardHide)
+
+        # negative review
+        upd.message.text = ' '.join(['/rate link to video', unicode(Emoji.THUMBS_DOWN_SIGN, 'utf-8')])
+        rate(bot, upd)
+
+        self.assertEqual(bot.sended_message['text'], 'one more link')
+        self.assertEqual(bot.sended_message['chat_id'], 1)
+        self.assertEqual(type(bot.sended_message['reply_markup']), ReplyKeyboardMarkup)
+        self.assertEqual(bot.sended_message['reply_markup'].keyboard, [[Emoji.THUMBS_UP_SIGN,
+                                                                        Emoji.THUMBS_DOWN_SIGN]])
+
+        # unknown review
+        upd.message.text = ' '.join(['/rate link to video', 'unknown'])
+        rate(bot, upd)
+
+        self.assertEqual(bot.sended_message['text'], _('Please rate the video.'))
+        self.assertEqual(bot.sended_message['chat_id'], 1)
+        self.assertEqual(type(bot.sended_message['reply_markup']), ReplyKeyboardMarkup)
+        self.assertEqual(bot.sended_message['reply_markup'].keyboard, [[Emoji.THUMBS_UP_SIGN,
+                                                                        Emoji.THUMBS_DOWN_SIGN]])
+
+        chat.referer = ''
+        chat.save()
 
 
 class TestMessage(unittest.TestCase):
@@ -463,23 +526,6 @@ class TestMessage(unittest.TestCase):
         default(bot, upd)
 
         self.assertEqual(bot.sended_message['text'], _('Thanks for the feedback!'))
-        self.assertEqual(bot.sended_message['chat_id'], 1)
-        self.assertEqual(type(bot.sended_message['reply_markup']), ReplyKeyboardHide)
-
-        # negative review - return other link to video
-        upd.message.text = '/watch house of cards s1 e1'
-        watch(bot, upd)
-
-        chat.refresh()
-
-        upd.message.text = Emoji.THUMBS_DOWN_SIGN
-        default(bot, upd)
-
-        self.assertEqual(bot.sended_message['text'], 'one more link')
-        self.assertEqual(bot.sended_message['chat_id'], 1)
-        self.assertEqual(type(bot.sended_message['reply_markup']), ReplyKeyboardMarkup)
-        self.assertEqual(bot.sended_message['reply_markup'].keyboard, [[Emoji.THUMBS_UP_SIGN,
-                                                                        Emoji.THUMBS_DOWN_SIGN]])
 
 
 if __name__ == '__main__':

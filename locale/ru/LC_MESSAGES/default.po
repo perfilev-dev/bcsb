@@ -7,8 +7,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2016-04-10 15:09+0300\n"
-"PO-Revision-Date: 2016-04-10 15:13+0300\n"
+"POT-Creation-Date: 2016-04-21 04:22+0300\n"
+"PO-Revision-Date: 2016-04-21 04:29+0300\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
@@ -16,82 +16,131 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "X-Generator: Poedit 1.5.7\n"
 
-#: methods.py:144
-msgid "List of active subscriptions:"
-msgstr "Активные подписки"
+#: command.py:57
+msgid "Active subscriptions:"
+msgstr "Активные подписки:"
 
-#: methods.py:53
+#: command.py:199
+msgid "Invalid episode number."
+msgstr "Некорректный номер эпизода."
+
+#: command.py:194
+msgid "Invalide season number."
+msgstr "Некорректный номер сезона."
+
+#: command.py:38
 msgid "List of available TV shows:"
-msgstr "Доступные сериалы:"
+msgstr "Список сериалов:"
 
-#: methods.py:87 methods.py:118
+#: command.py:289
+msgid "Please rate the video."
+msgstr "Пожалуйста, оцените видео."
+
+#: command.py:86 command.py:252
+msgid ""
+"Specified series is not on my list, but we will try to find this series."
+msgstr "Указанный сериал отсутствует в нашей базе, но мы попытаемся её найти."
+
+#: command.py:119
 msgid "Specified series is not on my list."
-msgstr "Указанный сериал отстутсвует в нашей базе."
+msgstr "Указанный сериал отсутствует в нашей базе."
 
-#: methods.py:182
+#: command.py:279
+msgid "Thanks for the feedback!"
+msgstr "Спасибо за отзыв!"
+
+#: command.py:144
 msgid "The language has changed!"
-msgstr "Язык изменён."
+msgstr "Язык изменен!"
 
-#: methods.py:172
+#: command.py:228
+msgid "This episode is not available."
+msgstr "Эпизод недоступен."
+
+#: command.py:240
+msgid "This season is not available."
+msgstr "Сезон недоступен."
+
+#: command.py:148
 msgid "Unknown language!"
 msgstr "Неизвестный язык!"
 
-#: methods.py:163
+#: command.py:218
+msgid "We will send you video soon."
+msgstr "Мы отправим вам видео очень скоро."
+
+#: command.py:258
+msgid "Which TV show would you like to see?"
+msgstr "Какой сериал вы бы хотели посмотреть?"
+
+#: command.py:231
+msgid "Which episode would you like to see?"
+msgstr "Какое эпизод вы бы хотели посмотреть?"
+
+#: command.py:151
 msgid "Which language do you prefer?"
 msgstr "Какой язык вы предпочитаете?"
 
-#: methods.py:82
+#: command.py:243
+msgid "Which season would you like to see?"
+msgstr "Какой сезон вы бы хотели посмотреть?"
+
+#: command.py:93
 msgid "Which series would you like to subscribe?"
 msgstr "На какой сериал вы бы хотели подписаться?"
 
-#: methods.py:113
+#: command.py:122
 msgid "Which series would you like to unsubscribe?"
 msgstr "От какого сериала вы бы хотели отписаться?"
 
-#: methods.py:93
+#: command.py:81
 msgid "You are already subscribed to this series."
 msgstr "Вы уже подписаны на этот сериал."
 
-#: methods.py:184
+#: command.py:146
 msgid "You are already using this language!"
 msgstr "Вы уже используете этот язык."
 
-#: methods.py:142
+#: command.py:63
 msgid "You are not subscribed to any of the series."
 msgstr "Вы не подписаны ни на один сериал."
 
-#: methods.py:127
+#: command.py:116
 msgid "You are not subscribed to the show."
 msgstr "Вы не подписаны на этот сериал."
 
-#: methods.py:37
+#: command.py:18
 msgid "You can control me by sending these commands:"
-msgstr "Вы можете управлять мной с помощью этих команд:"
+msgstr "Вы можете управлять мной, отправляя эти команды:"
 
-#: methods.py:97
+#: command.py:84
 msgid "You have subscribed to the show."
 msgstr "Вы подписались на сериал."
 
-#: methods.py:125
+#: command.py:114
 msgid "You have unsubscribed from the show."
 msgstr "Вы отписались от сериала."
 
-#: methods.py:42
+#: command.py:23
 msgid "change language"
 msgstr "изменить язык"
 
-#: methods.py:39
+#: command.py:24
+msgid "find any available episode"
+msgstr "найти любой доступный сериал"
+
+#: command.py:20
 msgid "show active subscriptions"
 msgstr "показать активные подписки"
 
-#: methods.py:38
+#: command.py:19
 msgid "show list of available TV shows"
-msgstr "показать список сериалов"
+msgstr "показать доступные сериалы"
 
-#: methods.py:40
+#: command.py:21
 msgid "subscribe to a TV show"
 msgstr "подписаться на сериал"
 
-#: methods.py:41
+#: command.py:22
 msgid "unsubscribe from a TV show"
 msgstr "отписаться от сериала"

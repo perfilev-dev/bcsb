@@ -4,12 +4,15 @@ import __builtin__ as shared
 from neomodel import DoesNotExist
 from model import Chat, Show, Season, Episode, Video
 from telegram import Emoji, ReplyKeyboardMarkup, ReplyKeyboardHide
+from worker import ShowFinder, VideoFinder
 
 
 def start(bot, update):
     ''' Returns the standard greeting with a list of commands. '''
 
     chat = Chat.get_or_create(id=update.message.chat_id)
+    chat.referer = ''
+    chat.save()
 
     response = (
         _('You can control me by sending these commands:') + '\n',
@@ -17,7 +20,8 @@ def start(bot, update):
         '/subscriptions - %s' % _('show active subscriptions'),
         '/subscribe - %s' % _('subscribe to a TV show'),
         '/unsubscribe - %s' % _('unsubscribe from a TV show'),
-        '/setlang - %s' % _('change language')
+        '/setlanguage - %s' % _('change language'),
+        '/watch - %s' % _('find any available episode')
     )
 
     bot.sendMessage(chat_id=update.message.chat_id,
@@ -28,11 +32,14 @@ def showlist(bot, update):
     ''' Returns list of available TV shows. '''
 
     chat = Chat.get_or_create(id=update.message.chat_id)
+    chat.referer = ''
+    chat.save()
 
-    response_lines = [ _('List of available TV shows:') + '\n'
-    ] + [' '.join([Emoji.BLACK_SMALL_SQUARE if chat in s.subscribers.all()
-                                            else Emoji.WHITE_SMALL_SQUARE,
-                   str(s.title)]) for s in Show.nodes.all()]
+    response_lines = [ unicode(_('List of available TV shows:') + '\n', 'utf-8')
+    ] + [' '.join([unicode(Emoji.BLACK_SMALL_SQUARE if chat in s.subscribers.all()
+                                            else Emoji.WHITE_SMALL_SQUARE, 'utf-8'),
+                   s.title]) for s in sorted(Show.nodes.all(),
+                                             key=lambda x: x.title)]
 
     bot.sendMessage(chat_id=update.message.chat_id,
                     text='\n'.join(response_lines),
@@ -42,11 +49,15 @@ def subscriptions(bot, update):
     ''' Returns active subscriptions of the chat. '''
 
     chat = Chat.get_or_create(id=update.message.chat_id)
+    chat.referer = ''
+    chat.save()
 
     if chat.subscriptions.all():
-        response_lines = [_('List of active subscriptions:') + '\n'
-        ] + [' '.join([Emoji.BLACK_SMALL_SQUARE,
-                       str(s.title)]) for s in chat.subscriptions.all()]
+
+        response_lines = [ unicode(_('Active subscriptions:') + '\n', 'utf-8')
+        ] + [' '.join([unicode(Emoji.BLACK_SMALL_SQUARE, 'utf-8'),
+                       s.title]) for s in sorted(chat.subscriptions.all(),
+                                                 key=lambda x: x.title)]
         response = '\n'.join(response_lines)
     else:
         response = _('You are not subscribed to any of the series.')
@@ -72,7 +83,11 @@ def subscribe(bot, update):
                 show.subscribers.connect(chat)
                 response = _('You have subscribed to the show.')
         except DoesNotExist:
-            response = _('Specified series is not on my list.')
+            response = _('Specified series is not on my list, '
+                         'but we will try to find this series.')
+            ShowFinder(bot=bot,
+                       chat_id=update.message.chat_id,
+                       show_title=show_title).start()
         chat.referer = ''
     else:
         response = _('Which series would you like to subscribe?')
@@ -119,6 +134,8 @@ def setlanguage(bot, update):
 
     language = update.message.text[13:].strip().lower()
 
+    reply_markup=ReplyKeyboardHide()
+
     if language:
         if language in shared.translations:
             if chat.language != language:
@@ -132,11 +149,12 @@ def setlanguage(bot, update):
         chat.referer = ''
     else:
         response = _('Which language do you prefer?')
+        reply_markup = ReplyKeyboardMarkup([shared.config['telegram']['locales']])
         chat.referer = update.message.text
 
     bot.sendMessage(chat_id=update.message.chat_id,
                     text=response,
-                    reply_markup=ReplyKeyboardHide())
+                    reply_markup=reply_markup)
     chat.save()
 
 def watch(bot, update):
@@ -157,7 +175,6 @@ def watch(bot, update):
             show_title, season_number, episode_number = ('', None, None)
 
         return show_title.strip().lower(), season_number, episode_number
-
 
     chat = Chat.get_or_create(id=update.message.chat_id)
 
@@ -197,10 +214,14 @@ def watch(bot, update):
                                         episode = season.episodes.get(number=episode_number)
 
                                         if episode.is_available:
-                                            response = episode.link_to_video_for_chat(1)
-                                            chat.referer = '/rate ' + response
-                                            reply_markup = ReplyKeyboardMarkup([
-                                                [Emoji.THUMBS_UP_SIGN, Emoji.THUMBS_DOWN_SIGN]])
+
+                                            response = _('We will send you video soon.')
+                                            chat.referer = update.message.text
+
+                                            VideoFinder(bot=bot,
+                                                        chat_id=update.message.chat_id,
+                                                        episode=episode).start()
+
                                         else:
                                             raise DoesNotExist({'episode_number': episode_number})
                                     except DoesNotExist:
@@ -228,8 +249,11 @@ def watch(bot, update):
                 else:
                     raise DoesNotExist({'show_title': show_title})
             except DoesNotExist:
-                response = _('This TV show is not available.')
-                chat.referer = ''
+                response = _('Specified series is not on my list, '
+                             'but we will try to find this series.')
+                ShowFinder(bot=bot,
+                           chat_id=update.message.chat_id,
+                           show_title=show_title).start()
         else:
             response = _('Which TV show would you like to see?')
             chat.referer = update.message.text
@@ -243,10 +267,10 @@ def rate(bot, update):
     ''' Provides the ability to rate videos. '''
 
     chat = Chat.get_or_create(id=update.message.chat_id)
-    video = Video.nodes.get(url=update.message.text[6:-3])
+    video = Video.nodes.get(url=' '.join(update.message.text[6:].split()[:-1]))
 
     chat.rated_videos.disconnect(video)
-    chat.referer = ''
+    ref, chat.referer = chat.referer, ''
     chat.save()
 
     if update.message.text.split()[-1] == unicode(Emoji.THUMBS_UP_SIGN, 'utf-8'):
@@ -258,6 +282,13 @@ def rate(bot, update):
         chat.rated_videos.connect(video, {'value': -1})
         update.message.text = ' '.join(['/watch', video.episode.get().id])
         watch(bot, update)
+    else:
+        chat.referer = ref
+        chat.save()
+        bot.sendMessage(chat_id=update.message.chat_id,
+                        text= _('Please rate the video.'),
+                        reply_markup = ReplyKeyboardMarkup([
+                            [Emoji.THUMBS_UP_SIGN, Emoji.THUMBS_DOWN_SIGN]]))
 
 def default(bot, update):
     ''' Handles messages that are not commands. '''
@@ -274,7 +305,7 @@ def default(bot, update):
         update.message.text = ' '.join([chat.referer, update.message.text])
         setlanguage(bot, update)
     elif chat.referer.startswith('/rate'):
-        update.message.text = ' '.join([chat.referer, unicode(update.message.text, 'utf-8')])
+        update.message.text = ' '.join([chat.referer, update.message.text])
         rate(bot, update)
     elif chat.referer.startswith('/watch'):
         pairs = re.findall(r'([a-z]+)([0-9]+)', chat.referer)

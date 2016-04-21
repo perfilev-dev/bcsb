@@ -10,10 +10,7 @@ from bs4 import BeautifulSoup
 import requests
 import json
 
-from util import configure_from_file
-shared.config = configure_from_file('default.cfg')
-
-from model import Show, Season, Episode
+from model import Show, Season, Episode, Video
 import neomodel
 import datetime
 
@@ -128,7 +125,7 @@ def add_or_update_show(title):
                 episode = season.episodes.get(
                     number=element['number'],
                     title=element['title'],
-                    release_date=element['release']
+                    release_date=element['release'],
                 )
 
             except neomodel.DoesNotExist:
@@ -137,7 +134,7 @@ def add_or_update_show(title):
                     title=unicode(element['title']),
                     release_date=element['release'],
                     number=element['number'],
-                    link_to_video=''
+                    is_already_shown=element['release'] < datetime.datetime.now()
                 ).save()
                 season.episodes.connect(episode)
 
@@ -145,8 +142,8 @@ def get_episode_urls(episode):
 
     episode_number = episode.number
     episode_title = unicode(episode.title.lower())
-    season_number = episode.season.number
-    show_title = unicode(episode.season.show.title.lower())
+    season_number = episode.season.get().number
+    show_title = unicode(episode.show.get().title.lower())
 
     vk_token = shared.config['vk']['token']
 
@@ -251,14 +248,17 @@ def get_episode_urls(episode):
 
 
 def update_episode_urls(episode):
-    urls = get_episode_url(episode)
+    urls, new_urls = get_episode_urls(episode), []
 
     for url in urls:
         try:
-            video = Video.nodes.get(link=url)
-        except neomodel.DoesNotExist:
-            video = Video(link=url).save()
-            episode.videos.connect(video)
+            v = Video(link=url).save()
+            episode.videos.connect(v)
+            new_urls.append(urls)
+        except neomodel.UniqueProperty:
+            pass
+
+    return new_urls
 
 
 if __name__ == '__main__':
